@@ -8,6 +8,7 @@ import streamlit as st
 import joblib
 import tensorflow as tf
 import gdown
+from scipy.ndimage import zoom
 from pathlib import Path
 from PIL import Image
 
