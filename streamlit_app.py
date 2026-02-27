@@ -94,7 +94,7 @@ def load_npz_to_hwc4(uploaded_file: Any) -> np.ndarray:
 @st.cache_resource
 def load_models() -> Dict[str, Any]:
     return {
-        "task1_pipeline": joblib.load(Path("models/task1_pipeline.pkl")),
+        "task1_pipeline": joblib.load(Path("models/model_task1.pkl")),
     }
 
 
