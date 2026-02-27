@@ -6,3 +6,5 @@ pillow
 scikit-learn
 joblib
 tensorflow
+gdown
+tensorflow-cpu
