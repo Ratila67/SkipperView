@@ -87,23 +87,25 @@ def load_npz_to_hwc4(uploaded_file: Any) -> np.ndarray:
 # ============================================================
 
 def preprocess(x_hwc4: np.ndarray) -> np.ndarray:
+    """
+    Reproduction EXACTE du preprocessing training.
+    """
 
-    x = np.asarray(x_hwc4, dtype=np.float32)
+    # float32 + NaN -> 0
+    img = np.nan_to_num(x_hwc4.astype(np.float32), nan=0.0, posinf=0.0, neginf=0.0)
 
-    # NaN -> 0
-    x = np.nan_to_num(x, nan=0.0)
+    # Normalisation par canal
+    max_abs = np.abs(img).max(axis=(0, 1))
+    np.maximum(max_abs, 1e-12, out=max_abs)
+    img = img / max_abs
 
-    resized = np.zeros((*TARGET_SIZE, 4), dtype=np.float32)
+    # Resize identique training
+    h, w = img.shape[:2]
+    factors = (TARGET_SIZE[0] / h, TARGET_SIZE[1] / w, 1)
 
-    for c in range(4):
-        img = Image.fromarray(x[:, :, c], mode="F")
-        img = img.resize(
-            (TARGET_SIZE[1], TARGET_SIZE[0]),
-            resample=Image.BILINEAR
-        )
-        resized[:, :, c] = np.array(img, dtype=np.float32)
+    img_resized = zoom(img, factors, order=1)
 
-    return resized
+    return img_resized.astype(np.float32)
 
 
 # ============================================================
@@ -235,10 +237,6 @@ def main():
 
     else:
         st.error(focus.get("error", "Erreur inconnue"))
-        
-st.write("Min:", np.min(x))
-st.write("Max:", np.max(x))
-st.write("Mean:", np.mean(x))
 
 if __name__ == "__main__":
     main()
