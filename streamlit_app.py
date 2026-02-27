@@ -43,8 +43,8 @@ def load_models():
         with open(local_path, "wb") as f:
             f.write(r.content)
 
-    model = keras.models.load_model(local_path)
-
+    model = tf.keras.models.load_model(local_path)
+    
     return {"task1_model": model}
 # ============================================================
 # LOAD NPZ
