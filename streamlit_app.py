@@ -45,6 +45,9 @@ def load_models():
         gdown.download(url, local_path, quiet=False)
 
     model = tf.keras.models.load_model(local_path)
+    
+    st.write("Model summary:")
+    model.summary(print_fn=st.write)
 
     return {"task1_model": model}
 # ============================================================
@@ -105,9 +108,6 @@ def preprocess(x_hwc4: np.ndarray) -> np.ndarray:
     factors = (TARGET_SIZE[0] / h, TARGET_SIZE[1] / w, 1)
 
     img_resized = zoom(img, factors, order=1)
-
-    st.write("Model summary:")
-    model.summary(print_fn=st.write)
 
       # 👇 DEBUG TEMPORAIRE
     st.write("Min:", img_resized.min())
