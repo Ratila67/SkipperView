@@ -106,6 +106,9 @@ def preprocess(x_hwc4: np.ndarray) -> np.ndarray:
 
     img_resized = zoom(img, factors, order=1)
 
+    st.write("Model summary:")
+    model.summary(print_fn=st.write)
+
       # 👇 DEBUG TEMPORAIRE
     st.write("Min:", img_resized.min())
     st.write("Max:", img_resized.max())
