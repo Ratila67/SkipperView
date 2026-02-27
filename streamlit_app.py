@@ -105,10 +105,14 @@ def load_models() -> Dict[str, Any]:
 TAILLE_CIBLE = (32, 32)
 
 def preprocess(x_hwc4: np.ndarray) -> np.ndarray:
+
     x = np.asarray(x_hwc4, dtype=np.float32)
 
     if x.ndim != 3 or x.shape[-1] != 4:
         raise ValueError(f"Attendu (H,W,4), reçu {x.shape}")
+
+    # 🔥 AJOUT IMPORTANT
+    x = np.nan_to_num(x, nan=0.0)
 
     # Normalisation par canal
     for c in range(x.shape[2]):
@@ -126,7 +130,12 @@ def preprocess(x_hwc4: np.ndarray) -> np.ndarray:
         )
         resized[:, :, c] = np.array(pil_r, dtype=np.float32)
 
-    return resized.flatten()
+    flat = resized.flatten()
+
+    # 🔥 Sécurité ultime
+    flat = np.nan_to_num(flat, nan=0.0)
+
+    return flat
 
 
 # ============================================================
