@@ -24,7 +24,7 @@ TAGLINE = "Managing the invisible"
 # CONFIG
 # ============================================================
 
-TAILLE_CIBLE = (224,224)
+TARGET_SIZE = (224,224)
 SEUIL_DEFAUT = 0.5
 MODEL_ID = "1nt44M2ut14aU1wXm2WgBqfTjGZCrkEPt"
 
