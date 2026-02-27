@@ -46,9 +46,8 @@ def load_models():
 
     model = tf.keras.models.load_model(local_path)
     
-    st.write("Model summary:")
-    model.summary(print_fn=st.write)
-
+    st.write("Clés du npz:", np.load(uploaded_file).files)
+    
     return {"task1_model": model}
 # ============================================================
 # LOAD NPZ
