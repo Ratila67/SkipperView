@@ -33,7 +33,7 @@ SEUIL_DEFAUT = 0.4
 @st.cache_resource
 def load_models() -> Dict[str, Any]:
     return {
-        "task1_pipeline": joblib.load(Path("models/model_task1.pkl"))
+        "task1_pipeline": joblib.load(Path("models/task1_pipeline.pkl"))
     }
 
 
