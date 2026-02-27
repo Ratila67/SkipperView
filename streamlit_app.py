@@ -177,6 +177,9 @@ def main():
     st.title(APP_NAME)
     st.caption(TAGLINE)
 
+    st.write("Min:", img_resized.min())
+    st.write("Max:", img_resized.max())
+
     with st.sidebar:
         uploaded = st.file_uploader(
             "Upload un ou plusieurs fichiers .npz",
