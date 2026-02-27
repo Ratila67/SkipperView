@@ -235,7 +235,10 @@ def main():
 
     else:
         st.error(focus.get("error", "Erreur inconnue"))
-
+        
+st.write("Min:", np.min(x))
+st.write("Max:", np.max(x))
+st.write("Mean:", np.mean(x))
 
 if __name__ == "__main__":
     main()
