@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import hashlib
-import json
 import time
-from dataclasses import dataclass
 from typing import Any, Dict, List
 
 import numpy as np
@@ -17,41 +14,32 @@ try:
 except Exception:
     pd = None
 
-try:
-    import matplotlib.pyplot as plt
-except Exception:
-    plt = None
-
-
 APP_NAME = "Magnetic Map — Analysis Console"
-TAGLINE = "Managing the invisible — Analysis Console"
+TAGLINE = "Managing the invisible"
 
 
 # ============================================================
-# CONFIG DATA STRUCTURES
+# CONFIG
 # ============================================================
 
-@dataclass(frozen=True)
-class Thresholds:
-    t1_presence: float = 0.4
-    t3_current: float = 0.5
-    t4_parallel: float = 0.5
-
-
-@dataclass(frozen=True)
-class RunConfig:
-    thresholds: Thresholds
-    device: str = "cpu"
-    mock_mode: bool = True
+TAILLE_CIBLE = (32, 32)
+SEUIL_DEFAUT = 0.4
 
 
 # ============================================================
-# NPZ LOADER
+# LOAD MODEL
 # ============================================================
 
-def _normalize_key(k: str) -> str:
-    return "".join(ch for ch in k.lower().strip() if ch.isalnum())
+@st.cache_resource
+def load_models() -> Dict[str, Any]:
+    return {
+        "task1_pipeline": joblib.load(Path("models/task1_pipeline.pkl"))
+    }
 
+
+# ============================================================
+# LOAD NPZ
+# ============================================================
 
 def load_npz_to_hwc4(uploaded_file: Any) -> np.ndarray:
     try:
@@ -62,21 +50,19 @@ def load_npz_to_hwc4(uploaded_file: Any) -> np.ndarray:
     with np.load(uploaded_file, allow_pickle=False) as z:
         keys = list(z.files)
 
-        want = {"bx": None, "by": None, "bz": None, "norm": None}
-        norm_map = {_normalize_key(k): k for k in keys}
+        # Cas Bx,By,Bz,Norm
+        channels = {}
+        for k in keys:
+            k_norm = "".join(c for c in k.lower() if c.isalnum())
+            if k_norm in ["bx", "by", "bz", "norm"]:
+                channels[k_norm] = z[k]
 
-        for short in want:
-            if short in norm_map:
-                want[short] = norm_map[short]
-
-        if all(v is not None for v in want.values()):
-            arrays = [np.asarray(z[want[k]]) for k in ("bx", "by", "bz", "norm")]
+        if len(channels) == 4:
+            arrays = [np.asarray(channels[k]) for k in ["bx", "by", "bz", "norm"]]
             arrays = [np.squeeze(a).astype(np.float32) for a in arrays]
-            shapes = {a.shape for a in arrays}
-            if len(shapes) != 1:
-                raise ValueError("Shapes canaux incohérentes.")
             return np.stack(arrays, axis=-1)
 
+        # Cas array unique
         for k in keys:
             a = np.asarray(z[k])
             if a.ndim == 3 and a.shape[-1] == 4:
@@ -88,30 +74,16 @@ def load_npz_to_hwc4(uploaded_file: Any) -> np.ndarray:
 
 
 # ============================================================
-# MODEL LOADING
-# ============================================================
-
-@st.cache_resource
-def load_models() -> Dict[str, Any]:
-    return {
-        "task1_pipeline": joblib.load(Path("models/model_task1.pkl")),
-    }
-
-
-# ============================================================
 # PREPROCESS (IDENTIQUE TRAINING)
 # ============================================================
 
-TAILLE_CIBLE = (32, 32)
-
 def preprocess(x_hwc4: np.ndarray) -> np.ndarray:
-
     x = np.asarray(x_hwc4, dtype=np.float32)
 
     if x.ndim != 3 or x.shape[-1] != 4:
         raise ValueError(f"Attendu (H,W,4), reçu {x.shape}")
 
-    # 🔥 AJOUT IMPORTANT
+    # Remplacement NaN
     x = np.nan_to_num(x, nan=0.0)
 
     # Normalisation par canal
@@ -120,9 +92,9 @@ def preprocess(x_hwc4: np.ndarray) -> np.ndarray:
         if max_abs > 0:
             x[:, :, c] /= max_abs
 
-    resized = np.zeros((*TAILLE_CIBLE, x.shape[2]), dtype=np.float32)
+    resized = np.zeros((*TAILLE_CIBLE, 4), dtype=np.float32)
 
-    for c in range(x.shape[2]):
+    for c in range(4):
         pil_img = Image.fromarray(x[:, :, c], mode="F")
         pil_r = pil_img.resize(
             (TAILLE_CIBLE[1], TAILLE_CIBLE[0]),
@@ -131,42 +103,33 @@ def preprocess(x_hwc4: np.ndarray) -> np.ndarray:
         resized[:, :, c] = np.array(pil_r, dtype=np.float32)
 
     flat = resized.flatten()
-
-    # 🔥 Sécurité ultime
     flat = np.nan_to_num(flat, nan=0.0)
 
     return flat
 
 
 # ============================================================
-# PREDICTIONS
+# PREDICTION TASK 1
 # ============================================================
 
 def predict_task1(x: np.ndarray, models: dict, threshold: float) -> dict:
     pipeline = models["task1_pipeline"]
+
     x = x.reshape(1, -1)
     proba = pipeline.predict_proba(x)[0][1]
     pred = int(proba >= threshold)
-    return {"class": pred, "probability": float(proba)}
 
-
-# Mock others
-def _mock_binary(seed: str, threshold: float) -> dict:
-    rng = np.random.default_rng(abs(hash(seed)) % (2**32))
-    proba = float(rng.uniform(0, 1))
-    return {"class": int(proba >= threshold), "probability": proba}
-
-
-def _mock_reg(seed: str) -> dict:
-    rng = np.random.default_rng(abs(hash(seed)) % (2**32))
-    return {"width_m": float(rng.uniform(5, 80))}
+    return {
+        "class": pred,
+        "probability": float(proba)
+    }
 
 
 # ============================================================
-# MAIN ANALYSIS
+# ANALYSIS
 # ============================================================
 
-def run_analysis(files, cfg, models):
+def run_analysis(files: List[Any], threshold: float, models: Dict[str, Any]):
     results = []
     progress = st.progress(0)
 
@@ -178,24 +141,21 @@ def run_analysis(files, cfg, models):
             x = load_npz_to_hwc4(f)
             x_p = preprocess(x)
 
-            t1 = predict_task1(x_p, models, cfg.thresholds.t1_presence)
-            t2 = _mock_reg(name)
-            t3 = _mock_binary(name + "_t3", cfg.thresholds.t3_current)
-            t4 = _mock_binary(name + "_t4", cfg.thresholds.t4_parallel)
+            t1 = predict_task1(x_p, models, threshold)
 
             row.update({
-                "t1_pred": t1["class"],
-                "t1_proba": t1["probability"],
-                "t2_width_m": t2["width_m"],
-                "t3_pred": t3["class"],
-                "t3_proba": t3["probability"],
-                "t4_pred": t4["class"],
-                "t4_proba": t4["probability"],
+                "Présence détectée": "OUI" if t1["class"] == 1 else "NON",
+                "Confiance (%)": round(t1["probability"] * 100, 1),
                 "ok": True
             })
 
         except Exception as e:
-            row.update({"ok": False, "error": str(e)})
+            row.update({
+                "Présence détectée": "-",
+                "Confiance (%)": "-",
+                "ok": False,
+                "error": str(e)
+            })
 
         results.append(row)
         progress.progress((i + 1) / len(files))
@@ -214,19 +174,29 @@ def main():
     st.caption(TAGLINE)
 
     with st.sidebar:
-        f = st.file_uploader("Upload .npz", type=["npz"], accept_multiple_files=True)
-        t1_thr = st.slider("Seuil T1", 0.0, 1.0, 0.4, 0.01)
+        uploaded = st.file_uploader(
+            "Upload un ou plusieurs fichiers .npz",
+            type=["npz"],
+            accept_multiple_files=True
+        )
+
+        threshold = st.slider(
+            "Seuil de décision",
+            0.0, 1.0,
+            SEUIL_DEFAUT,
+            0.01
+        )
+
         run = st.button("Analyse", type="primary")
 
-    if not f:
-        st.info("Upload un fichier .npz")
+    if not uploaded:
+        st.info("Upload un fichier pour démarrer.")
         return
 
     models = load_models()
-    cfg = RunConfig(thresholds=Thresholds(t1_presence=t1_thr))
 
     if run:
-        results = run_analysis(f, cfg, models)
+        results = run_analysis(uploaded, threshold, models)
         st.session_state["results"] = results
 
     if "results" not in st.session_state:
@@ -235,15 +205,35 @@ def main():
     results = st.session_state["results"]
 
     st.subheader("Résultats")
-    df = pd.DataFrame(results) if pd else results
-    st.dataframe(df)
 
     if pd:
+        df = pd.DataFrame(results)
+        st.dataframe(
+            df[["filename", "Présence détectée", "Confiance (%)"]],
+            use_container_width=True
+        )
+
         st.download_button(
             "Télécharger CSV",
             df.to_csv(index=False).encode(),
             "results.csv"
         )
+
+    # Résumé du premier fichier
+    focus = results[0]
+    if focus["ok"]:
+        st.markdown("### Résumé")
+
+        col1, col2 = st.columns(2)
+
+        col1.metric("Présence de conduite", focus["Présence détectée"])
+        col2.metric("Confiance modèle", f"{focus['Confiance (%)']} %")
+
+        if 40 < focus["Confiance (%)"] < 60:
+            st.warning("Prédiction incertaine (zone grise).")
+
+    else:
+        st.error(focus.get("error", "Erreur inconnue"))
 
 
 if __name__ == "__main__":
