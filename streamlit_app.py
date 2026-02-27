@@ -106,6 +106,12 @@ def preprocess(x_hwc4: np.ndarray) -> np.ndarray:
 
     img_resized = zoom(img, factors, order=1)
 
+      # 👇 DEBUG TEMPORAIRE
+    st.write("Min:", img_resized.min())
+    st.write("Max:", img_resized.max())
+    st.write("Mean:", img_resized.mean())
+    st.write("Shape:", img_resized.shape)
+
     return img_resized.astype(np.float32)
 
 
@@ -176,9 +182,6 @@ def main():
     st.set_page_config(layout="wide")
     st.title(APP_NAME)
     st.caption(TAGLINE)
-
-    st.write("Min:", img_resized.min())
-    st.write("Max:", img_resized.max())
 
     with st.sidebar:
         uploaded = st.file_uploader(
