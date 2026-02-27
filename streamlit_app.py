@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 from typing import Any, Dict, List
-
+import requests
 import numpy as np
 import streamlit as st
 import joblib
@@ -22,8 +22,9 @@ TAGLINE = "Managing the invisible"
 # CONFIG
 # ============================================================
 
-TAILLE_CIBLE = (32, 32)
-SEUIL_DEFAUT = 0.4
+TAILLE_CIBLE = (224,224)
+SEUIL_DEFAUT = 0.5
+MODEL_URL = "https://drive.google.com/file/d/1nt44M2ut14aU1wXm2WgBqfTjGZCrkEPt/view?usp=sharing"
 
 
 # ============================================================
@@ -31,12 +32,19 @@ SEUIL_DEFAUT = 0.4
 # ============================================================
 
 @st.cache_resource
-def load_models() -> Dict[str, Any]:
-    return {
-        "task1_pipeline": joblib.load(Path("models/task1_pipeline.pkl"))
-    }
+def load_models():
 
+    local_path = "models/task1.keras"
 
+    if not Path(local_path).exists():
+        r = requests.get(MODEL_URL)
+        Path("models").mkdir(exist_ok=True)
+        with open(local_path, "wb") as f:
+            f.write(r.content)
+
+    model = keras.models.load_model(local_path)
+
+    return {"task1_model": model}
 # ============================================================
 # LOAD NPZ
 # ============================================================
@@ -78,45 +86,37 @@ def load_npz_to_hwc4(uploaded_file: Any) -> np.ndarray:
 # ============================================================
 
 def preprocess(x_hwc4: np.ndarray) -> np.ndarray:
+
     x = np.asarray(x_hwc4, dtype=np.float32)
 
-    if x.ndim != 3 or x.shape[-1] != 4:
-        raise ValueError(f"Attendu (H,W,4), reçu {x.shape}")
-
-    # Remplacement NaN
+    # NaN -> 0
     x = np.nan_to_num(x, nan=0.0)
 
-    # Normalisation par canal
-    for c in range(x.shape[2]):
-        max_abs = np.max(np.abs(x[:, :, c]))
-        if max_abs > 0:
-            x[:, :, c] /= max_abs
-
-    resized = np.zeros((*TAILLE_CIBLE, 4), dtype=np.float32)
+    resized = np.zeros((*TARGET_SIZE, 4), dtype=np.float32)
 
     for c in range(4):
-        pil_img = Image.fromarray(x[:, :, c], mode="F")
-        pil_r = pil_img.resize(
-            (TAILLE_CIBLE[1], TAILLE_CIBLE[0]),
+        img = Image.fromarray(x[:, :, c], mode="F")
+        img = img.resize(
+            (TARGET_SIZE[1], TARGET_SIZE[0]),
             resample=Image.BILINEAR
         )
-        resized[:, :, c] = np.array(pil_r, dtype=np.float32)
+        resized[:, :, c] = np.array(img, dtype=np.float32)
 
-    flat = resized.flatten()
-    flat = np.nan_to_num(flat, nan=0.0)
-
-    return flat
+    return resized
 
 
 # ============================================================
 # PREDICTION TASK 1
 # ============================================================
 
-def predict_task1(x: np.ndarray, models: dict, threshold: float) -> dict:
-    pipeline = models["task1_pipeline"]
+def predict_task1(x: np.ndarray, models: dict, threshold: float):
 
-    x = x.reshape(1, -1)
-    proba = pipeline.predict_proba(x)[0][1]
+    model = models["task1_model"]
+
+    x = np.expand_dims(x, axis=0)  # (1,224,224,4)
+
+    proba = model.predict(x, verbose=0)[0][0]
+
     pred = int(proba >= threshold)
 
     return {
