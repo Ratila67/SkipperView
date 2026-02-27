@@ -7,6 +7,7 @@ import numpy as np
 import streamlit as st
 import joblib
 import tensorflow as tf
+import gdown
 from pathlib import Path
 from PIL import Image
 
@@ -25,7 +26,7 @@ TAGLINE = "Managing the invisible"
 
 TAILLE_CIBLE = (224,224)
 SEUIL_DEFAUT = 0.5
-MODEL_URL = "https://drive.google.com/file/d/1nt44M2ut14aU1wXm2WgBqfTjGZCrkEPt/view?usp=sharing"
+MODEL_ID = "1nt44M2ut14aU1wXm2WgBqfTjGZCrkEPt"
 
 
 # ============================================================
@@ -36,15 +37,14 @@ MODEL_URL = "https://drive.google.com/file/d/1nt44M2ut14aU1wXm2WgBqfTjGZCrkEPt/v
 def load_models():
 
     local_path = "models/task1.keras"
+    Path("models").mkdir(exist_ok=True)
 
     if not Path(local_path).exists():
-        r = requests.get(MODEL_URL)
-        Path("models").mkdir(exist_ok=True)
-        with open(local_path, "wb") as f:
-            f.write(r.content)
+        url = f"https://drive.google.com/uc?id={MODEL_ID}"
+        gdown.download(url, local_path, quiet=False)
 
     model = tf.keras.models.load_model(local_path)
-    
+
     return {"task1_model": model}
 # ============================================================
 # LOAD NPZ
