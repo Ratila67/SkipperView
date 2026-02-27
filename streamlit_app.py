@@ -36,7 +36,7 @@ MODEL_ID = "1nt44M2ut14aU1wXm2WgBqfTjGZCrkEPt"
 @st.cache_resource
 def load_models():
 
-    local_path = "models/task1.keras"
+    local_path = "models/modele_tache1.keras"
     Path("models").mkdir(exist_ok=True)
 
     if not Path(local_path).exists():
