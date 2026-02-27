@@ -126,6 +126,9 @@ def predict_task1(x: np.ndarray, models: dict, threshold: float):
     x = np.expand_dims(x, axis=0)  # (1,224,224,4)
 
     proba = model.predict(x, verbose=0)[0][0]
+    
+    #DEBUG
+    st.write("Proba brute:", proba)
 
     pred = int(proba >= threshold)
 
