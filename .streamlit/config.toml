@@ -1,0 +1,13 @@
+[theme]
+base = "dark"
+
+# Accent “Skipper-like”
+primaryColor = "#FF002F"
+
+# Backgrounds
+backgroundColor = "#100808"
+secondaryBackgroundColor = "#1A1514"
+
+# Text
+textColor = "#F5F5F7"
+font = "sans serif"
